@@ -36,11 +36,9 @@
 
 import smbus
 import time
+from Adafruit_I2C import Adafruit_I2C
 
-# enable I2C bus
-bus = smbus.SMBus(1)
-
-class LCD_I2C(object):
+class LCD_I2C(Adafruit_I2C):
 
     # commands
     LCD_CLEARDISPLAY = 0x01
@@ -104,8 +102,8 @@ class LCD_I2C(object):
     E_PULSE = 0.0005
     E_DELAY = 0.0005
 
-    def __init__(self, address, height = 4, width = 20):
-        self.address = address
+    def __init__(self, address, busnum=-1, debug=False, height = 4, width = 20):
+        Adafruit_I2C.__init__(self, address, busnum, debug)
         self.height = height
         self.width = width
 
@@ -136,19 +134,19 @@ class LCD_I2C(object):
         bits_low = mode | ((bits<<4) & 0xF0) | self.LCD_BACKLIGHT
 
         # High bits
-        bus.write_byte(self.address, bits_high)
+        Adafruit_I2C.writeRaw8(self, bits_high)
         self.toggle_enable(bits_high)
 
         # Low bits
-        bus.write_byte(self.address, bits_low)
+        Adafruit_I2C.writeRaw8(self, bits_low)
         self.toggle_enable(bits_low)
 
     def toggle_enable(self, bits):
         # Toggle enable
         time.sleep(self.E_DELAY)
-        bus.write_byte(self.address, (bits | self.ENABLE))
+        Adafruit_I2C.writeRaw8(self, bits | self.ENABLE)
         time.sleep(self.E_PULSE)
-        bus.write_byte(self.address,(bits & ~self.ENABLE))
+        Adafruit_I2C.writeRaw8(self, bits & ~self.ENABLE)
         time.sleep(self.E_DELAY)
 
     def send_string(self, message, line):
@@ -174,8 +172,8 @@ class LCD_I2C(object):
             self.send_byte(ord(message[i]),self.LCD_CHR)
 
 if __name__ == '__main__':
+    LCD = LCD_I2C(0x3f)
     try:
-        LCD = LCD_I2C(0x3f)
         LCD.initialize()
         counter = 1
         while True:

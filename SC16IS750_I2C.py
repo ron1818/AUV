@@ -9,17 +9,15 @@ import smbus
 import time
 import re
 import pynmea2
+from Adafruit_I2C import Adafruit_I2C
 
 """ I2C to UART bridge with SC16IS750
 I2C bus address is 0x4d
 it can also be used as SPI to UART bridge
 """
 
-# enable I2C bus
-bus = smbus.SMBus(1)
-
 # define a class
-class SC16IS750(object):
+class SC16IS750(Adafruit_I2C):
     """ class of SC16IS750 """
 
     # registers
@@ -36,11 +34,11 @@ class SC16IS750(object):
     EFR = 0x02  # enhanced feature register, only when LCE[7] = 0
     TLR = 0x07  # trigger level register, only when EFR[4] = 1 & MCR[2] = 1
 
-    def __init__(self, address, baud=9600, quiet=False):
+    def __init__(self, address, busnum=-1, debug=False, baud=9600):
         """ pass initial parameter to the class object """
-        self.add = address
         self.baud = baud
-        self.quiet = quiet
+        super(SC16IS750, self).__init__(address, busnum, debug)
+        self.I2C_initialize()
 
     def I2C_initialize(self):
         """ initialize chip,
@@ -68,7 +66,7 @@ class SC16IS750(object):
         self.write_byte(self.TLR, 0b00010001)
 
         # check status, debug
-        if not self.quiet:
+        if self.debug:
             print "FCR: {0:x}".format(self.read_byte(self.FCR))
             print "LCR: {0:x}".format(self.read_byte(self.LCR))
             print "MCR: {0:x}".format(self.read_byte(self.MCR))
@@ -84,7 +82,7 @@ class SC16IS750(object):
         reg = reg << 3
         # bitwise or with a write bit
         actual_reg = reg | Write_bit
-        bus.write_byte_data(self.add, actual_reg, value)
+        Adafruit_I2C.write8(self, actual_reg, value)
 
     def read_byte(self, reg):
         """SC16IS7X0 expects a R/W first, followd by a
@@ -95,7 +93,7 @@ class SC16IS750(object):
         reg = reg << 3
         # bitwise or with a write bit
         actual_reg = reg | Read_bit
-        return bus.read_byte_data(self.add, actual_reg)
+        return Adafruit_I2C.readU8(self, actual_reg)
 
     def write_sentence(self, sentence):
         """write a sentence to the UART,
@@ -127,6 +125,9 @@ class SC16IS750(object):
         else:
             return None
 
+    def __str__(self):
+        return self.read_sentence()
+
 
 class GPS_I2C(SC16IS750):
     """ Adafruit Ultimate GPS is a uart device,
@@ -153,15 +154,13 @@ class GPS_I2C(SC16IS750):
     # get version
     PMTK_Q_RELEASE = '$PMTK605*31\r\n'
 
-    def __init__(self, address, baud=9600, update_rate=1, output_data="RMCONLY",quiet=False):
-        SC16IS750.__init__(self, address, baud)
-        self.quiet = quiet
+    def __init__(self, address, busnum=-1, debug=False, baud=9600, update_rate=1, output_data="RMCONLY"):
         self.update_rate = update_rate
         self.output_data = output_data
+        super(GPS_I2C, self).__init__(address, busnum, debug, baud)
 
     def GPS_initialize(self):
         """ initialize GPS """
-        SC16IS750.I2C_initialize(self)
 
         # write update rate to RX of UART
         if self.update_rate == 1:
@@ -189,13 +188,14 @@ class GPS_I2C(SC16IS750):
         # time.sleep(1.0/self.update_rate)
         # check the q realease
         GPS_sentence = SC16IS750.read_sentence(self)
-        if not self.quiet: print GPS_sentence
+        if self.debug: 
+            print GPS_sentence
 
         # sleep for a short while
         # time.sleep(1.0/self.update_rate)
 
-    def GPS_read_sentence(self):
-        """ read GPS nmea0183 sentences, one shot """
+    def __str__(self):
+        """ read GPS nmea0183 sentences """
         return SC16IS750.read_sentence(self)
 
     def parse_sentence(self):
@@ -234,25 +234,14 @@ class GPS_I2C(SC16IS750):
                     "fix": fix})
 
 
-class RS485_I2C(SC16IS750):
-    """ RS485 to TTL connected to SC16
-    make sure that the baudrate is set to 9600
-    """
-
-    def RS485_read_sentence(self, update_rate = 0.01):
-        while True:
-            sentence = self.read_sentence()
-            print sentence
-            # sleep for a short while
-            time.sleep(update_rate)
-
 if __name__ == "__main__":
-    GPS = GPS_I2C(0x48, update_rate=1, output_data="RMCONLY", quiet=True)
-    GPS.GPS_initialize()
+    # chip = SC16IS750(0x48)
+    # GPS = GPS_I2C(0x48, update_rate=1, output_data="RMCONLY")
+    # GPS.GPS_initialize()
+    # while True:
+    #     print GPS.parse_sentence()
+    RS485 = SC16IS750(0x4d, baud=4800)
     while True:
-        print GPS.parse_sentence()
-    # RS485 = RS485_I2C(0x4d)
-    # RS485.I2C_initialize(4800)
-    # RS485.RS485_read_sentence()
+        print RS485
 
 

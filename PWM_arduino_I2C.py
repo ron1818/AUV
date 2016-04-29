@@ -27,6 +27,9 @@ class PWM_Driver(object):
         print payload
         bus.write_i2c_block_data(self.addr, 0, payload)
 
+    def read_data(self):
+        print bus.read_byte(self.addr)
+
     def extract_msb_lsb(self, val, bits):
         """ use bitstring.BitArray to convert and extract,
         auto two's complement"""
@@ -43,9 +46,12 @@ class PWM_Driver(object):
 if __name__ == "__main__":
     pwm_gen = PWM_Driver(0x04)
     pwm_gen.send_data(100, -15)
-    time.sleep(10)
+    time.sleep(5)
+    pwm_gen.read_data()
     pwm_gen.send_data(-100, 15)
-    time.sleep(10)
+    time.sleep(6)
+    pwm_gen.read_data()
     pwm_gen.send_data(10, 150)
-    time.sleep(10)
+    time.sleep(7)
+    pwm_gen.read_data()
     pwm_gen.send_data(-10, -150)
